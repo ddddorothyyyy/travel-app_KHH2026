@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>旅行助手 App</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+
+        * {
+            font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(to bottom, #e0f2fe, #f0f9ff);
+            min-height: 100vh;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+        }
+
+        .tab-active {
+            background: linear-gradient(135deg, #7dd3fc, #38bdf8);
+            color: white;
+        }
+
+        .weather-icon {
+            font-size: 2rem;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            ring: 2px;
+            ring-color: #38bdf8;
+        }
+
+        .expense-item:hover {
+            transform: translateX(4px);
+            transition: all 0.2s ease;
+        }
+    </style>
+</head>
+<body class="pb-20">
+    <div id="app" class="max-w-md mx-auto p-4">
+        <!-- Header -->
+        <div class="glass-card rounded-3xl p-6 mb-4">
+            <h1 class="text-2xl font-bold text-gray-800 text-center">
+                <i class="fas fa-suitcase text-sky-400"></i> 旅行助手
+            </h1>
+            <p class="text-center text-gray-500 text-sm mt-1">{{ currentDate }}</p>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="glass-card rounded-3xl p-2 mb-4 flex gap-2">
+            <button 
+                v-for="tab in tabs" 
+                :key="tab.id"
+                @click="currentTab = tab.id"
+                :class="currentTab === tab.id ? 'tab-active' : 'bg-white text-gray-600'"
+                class="flex-1 py-3 rounded-2xl font-medium transition-all duration-300">
+                <i :class="tab.icon"></i>
+                <div class="text-xs mt-1">{{ tab.name }}</div>
+            </button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="space-y-4">
+
+            <!-- 行程表 Tab -->
+            <div v-show="currentTab === 'schedule'" class="space-y-4">
+                <!-- 天氣顯示 -->
+                <div class="glass-card rounded-3xl p-6">
+                    <h3 class="font-semibold text-gray-700 mb-3 flex items-center">
+                        <i class="fas fa-cloud-sun text-sky-400 mr-2"></i> 今日天氣
+                    </h3>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">{{ weather.location }}</p>
+                            <p class="text-3xl font-bold text-gray-800">{{ weather.temp }}°C</p>
+                            <p class="text-sm text-gray-500">{{ weather.description }}</p>
+                        </div>
+                        <div class="weather-icon">{{ weather.icon }}</div>
+                    </div>
+                </div>
+
+                <!-- 新增行程 -->
+                <div class="glass-card rounded-3xl p-6">
+                    <h3 class="font-semibold text-gray-700 mb-3">新增行程</h3>
+                    <input v-model="newSchedule.time" type="time" 
+                           class="w-full p-3 rounded-xl border border-gray-200 mb-2"
+                           placeholder="時間">
+                    <input v-model="newSchedule.title" type="text" 
+                           class="w-full p-3 rounded-xl border border-gray-200 mb-2"
+                           placeholder="行程標題">
+                    <input v-model="newSchedule.location" type="text" 
+                           class="w-full p-3 rounded-xl border border-gray-200 mb-3"
+                           placeholder="地點">
+                    <button @click="addSchedule" 
+                            class="w-full bg-sky-400 text-white py-3 rounded-xl font-medium hover:bg-sky-500 transition">
+                        <i class="fas fa-plus mr-2"></i>新增
+                    </button>
+                </div>
+
+                <!-- 行程列表 -->
+                <div class="glass-card rounded-3xl p-6">
+                    <h3 class="font-semibold text-gray-700 mb-3">我的行程</h3>
+                    <div v-if="schedules.length === 0" class="text-center text-gray-400 py-8">
+                        <i class="fas fa-calendar-alt text-4xl mb-2"></i>
+                        <p>還沒有行程，快新增一個吧！</p>
+                    </div>
+                    <div v-else class="space-y-3">
+                        <div v-for="(schedule, index) in sortedSchedules" :key="index"
+                             class="bg-white rounded-2xl p-4 flex items-start justify-between hover:shadow-md transition">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-1">
+                                    <span class="text-sky-500 font-semibold mr-2">{{ schedule.time }}</span>
+                                </div>
+                                <p class="font-medium text-gray-800">{{ schedule.title }}</p>
+                                <p class="text-sm text-gray-500 flex items-center mt-1">
+                                    <i class="fas fa-map-marker-alt mr-1"></i>{{ schedule.location }}
+                                </p>
+                            </div>
+                            <button @click="deleteSchedule(index)" 
+                                    class="text-red-400 hover:text-red-600 ml-2">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 地圖 Tab -->
+            <div v-show="currentTab === 'map'" class="space-y-4">
+                <div class="glass-card rounded-3xl p-6">
+                    <h3 class="font-semibold text-gray-700 mb-3">
+                        <i class="fas fa-map text-sky-400 mr-2"></i>導航至目的地
+                    </h3>
+                    <input v-model="mapDestination" type="text" 
+                           class="w-full p-3 rounded-xl border border-gray-200 mb-3"
+                           placeholder="輸入目的地地址">
+                    <button @click="openGoogleMaps" 
+                            class="w-full bg-sky-400 text-white py-3 rounded-xl font-medium hover:bg-sky-500 transition">
+                        <i class="fas fa-directions mr-2"></i>開啟 Google Maps 導航
+                    </button>
+                </div>
+
+                <!-- 行程地點快速導航 -->
+                <div class="glass-card rounded-3xl p-6">
+                    <h3 class="font-semibold text-gray-700 mb-3">行程地點導航</h3>
+                    <div v-if="schedules.length === 0" class="text-center text-gray-400 py-8">
+                        <i class="fas fa-location-arrow text-4xl mb-2"></i>
+                        <p>在行程表中新增地點後即可快速導航</p>
+                    </div>
+                    <div v-else class="space-y-2">
+                        <button v-for="(schedule, index) in sortedSchedules" :key="index"
+                                @click="navigateToSchedule(schedule.location)"
+                                class="w-full bg-white rounded-xl p-4 text-left hover:bg-sky-50 transition flex items-center justify-between">
+                            <div>
+                                <p class="font-medium text-gray-800">{{ schedule.title }}</p>
+                                <p class="text-sm text-gray-500">{{ schedule.location }}</p>
+                            </div>
+                            <i class="fas fa-arrow-right text-sky-400"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 記帳 Tab -->
+            <div v-show="currentTab === 'expense'" class="space-y-4">
+                <!-- 總支出 -->
+                <div class="glass-card rounded-3xl p-6 text-center">
+                    <p class="text-sm text-gray-600 mb-1">總支出</p>
+                    <p class="text-4xl font-bold text-gray-800">HK$ {{ totalExpense.toFixed(2) }}</p>
+                </div>
+
+                <!-- 新增支出 -->
+                <div class="glass-card rounded-3xl p-6">
+                    <h3 class="font-semibold text-gray-700 mb-3">新增支出</h3>
+                    <input v-model="newExpense.item" type="text" 
+                           class="w-full p-3 rounded-xl border border-gray-200 mb-2"
+                           placeholder="項目名稱">
+                    <input v-model.number="newExpense.amount" type="number" step="0.01"
+                           class="w-full p-3 rounded-xl border border-gray-200 mb-2"
+                           placeholder="金額">
+                    <select v-model="newExpense.paymentMethod" 
+                            class="w-full p-3 rounded-xl border border-gray-200 mb-2 bg-white">
+                        <option value="">選擇付款方式</option>
+                        <option value="現金">💵 現金</option>
+                        <option value="信用卡">💳 信用卡</option>
+                        <option value="扣帳卡">💳 扣帳卡</option>
+                        <option value="電子錢包">📱 電子錢包</option>
+                        <option value="轉帳">🏦 轉帳</option>
+                    </select>
+                    <select v-model="newExpense.category" 
+                            class="w-full p-3 rounded-xl border border-gray-200 mb-3 bg-white">
+                        <option value="">選擇類別</option>
+                        <option value="餐飲">🍽️ 餐飲</option>
+                        <option value="交通">🚗 交通</option>
+                        <option value="住宿">🏨 住宿</option>
+                        <option value="購物">🛍️ 購物</option>
+                        <option value="娛樂">🎉 娛樂</option>
+                        <option value="其他">📝 其他</option>
+                    </select>
+                    <button @click="addExpense" 
+                            class="w-full bg-sky-400 text-white py-3 rounded-xl font-medium hover:bg-sky-500 transition">
+                        <i class="fas fa-plus mr-2"></i>新增支出
+                    </button>
+                </div>
+
+                <!-- 支出記錄 -->
+                <div class="glass-card rounded-3xl p-6">
+                    <h3 class="font-semibold text-gray-700 mb-3">支出記錄</h3>
+                    <div v-if="expenses.length === 0" class="text-center text-gray-400 py-8">
+                        <i class="fas fa-wallet text-4xl mb-2"></i>
+                        <p>還沒有支出記錄</p>
+                    </div>
+                    <div v-else class="space-y-2">
+                        <div v-for="(expense, index) in expenses" :key="index"
+                             class="bg-white rounded-2xl p-4 flex items-center justify-between expense-item">
+                            <div class="flex-1">
+                                <p class="font-medium text-gray-800">{{ expense.item }}</p>
+                                <p class="text-sm text-gray-500">
+                                    {{ expense.category }} • {{ expense.paymentMethod }}
+                                </p>
+                                <p class="text-xs text-gray-400">{{ expense.date }}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-semibold text-red-500">HK$ {{ expense.amount.toFixed(2) }}</p>
+                                <button @click="deleteExpense(index)" 
+                                        class="text-red-400 hover:text-red-600 text-xs mt-1">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 購物清單 Tab -->
+            <div v-show="currentTab === 'shopping'" class="space-y-4">
+                <!-- 新增項目 -->
+                <div class="glass-card rounded-3xl p-6">
+                    <h3 class="font-semibold text-gray-700 mb-3">新增購物項目</h3>
+                    <div class="flex gap-2">
+                        <input v-model="newShoppingItem" type="text" 
+                               class="flex-1 p-3 rounded-xl border border-gray-200"
+                               placeholder="輸入要購買的項目"
+                               @keyup.enter="addShoppingItem">
+                        <button @click="addShoppingItem" 
+                                class="bg-sky-400 text-white px-6 rounded-xl hover:bg-sky-500 transition">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 購物清單 -->
+                <div class="glass-card rounded-3xl p-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold text-gray-700">購物清單</h3>
+                        <span class="text-sm text-gray-500">{{ checkedCount }}/{{ shoppingList.length }} 完成</span>
+                    </div>
+                    <div v-if="shoppingList.length === 0" class="text-center text-gray-400 py-8">
+                        <i class="fas fa-shopping-cart text-4xl mb-2"></i>
+                        <p>購物清單是空的</p>
+                    </div>
+                    <div v-else class="space-y-2">
+                        <div v-for="(item, index) in shoppingList" :key="index"
+                             class="bg-white rounded-2xl p-4 flex items-center justify-between hover:shadow-md transition">
+                            <div class="flex items-center flex-1">
+                                <input type="checkbox" v-model="item.checked" 
+                                       class="w-5 h-5 text-sky-400 rounded mr-3">
+                                <span :class="item.checked ? 'line-through text-gray-400' : 'text-gray-800'">
+                                    {{ item.name }}
+                                </span>
+                            </div>
+                            <button @click="deleteShoppingItem(index)" 
+                                    class="text-red-400 hover:text-red-600 ml-2">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    currentTab: 'schedule',
+                    currentDate: '',
+                    tabs: [
+                        { id: 'schedule', name: '行程', icon: 'fas fa-calendar' },
+                        { id: 'map', name: '地圖', icon: 'fas fa-map' },
+                        { id: 'expense', name: '記帳', icon: 'fas fa-wallet' },
+                        { id: 'shopping', name: '購物', icon: 'fas fa-shopping-cart' }
+                    ],
+                    // 天氣數據
+                    weather: {
+                        location: '香港',
+                        temp: 22,
+                        description: '多雲',
+                        icon: '⛅'
+                    },
+                    // 行程
+                    schedules: [],
+                    newSchedule: {
+                        time: '',
+                        title: '',
+                        location: ''
+                    },
+                    // 地圖
+                    mapDestination: '',
+                    // 記帳
+                    expenses: [],
+                    newExpense: {
+                        item: '',
+                        amount: 0,
+                        paymentMethod: '',
+                        category: '',
+                        date: ''
+                    },
+                    // 購物清單
+                    shoppingList: [],
+                    newShoppingItem: ''
+                }
+            },
+            computed: {
+                sortedSchedules() {
+                    return [...this.schedules].sort((a, b) => a.time.localeCompare(b.time));
+                },
+                totalExpense() {
+                    return this.expenses.reduce((sum, expense) => sum + expense.amount, 0);
+                },
+                checkedCount() {
+                    return this.shoppingList.filter(item => item.checked).length;
+                }
+            },
+            methods: {
+                // 行程管理
+                addSchedule() {
+                    if (this.newSchedule.time && this.newSchedule.title && this.newSchedule.location) {
+                        this.schedules.push({...this.newSchedule});
+                        this.newSchedule = { time: '', title: '', location: '' };
+                        this.saveData();
+                    } else {
+                        alert('請填寫所有欄位');
+                    }
+                },
+                deleteSchedule(index) {
+                    if (confirm('確定要刪除此行程？')) {
+                        this.schedules.splice(index, 1);
+                        this.saveData();
+                    }
+                },
+                // 地圖導航
+                openGoogleMaps() {
+                    if (this.mapDestination) {
+                        const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(this.mapDestination)}`;
+                        window.open(url, '_blank');
+                    } else {
+                        alert('請輸入目的地');
+                    }
+                },
+                navigateToSchedule(location) {
+                    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(location)}`;
+                    window.open(url, '_blank');
+                },
+                // 記帳管理
+                addExpense() {
+                    if (this.newExpense.item && this.newExpense.amount > 0 && 
+                        this.newExpense.paymentMethod && this.newExpense.category) {
+                        this.newExpense.date = new Date().toLocaleString('zh-HK');
+                        this.expenses.unshift({...this.newExpense});
+                        this.newExpense = { item: '', amount: 0, paymentMethod: '', category: '', date: '' };
+                        this.saveData();
+                    } else {
+                        alert('請填寫所有欄位');
+                    }
+                },
+                deleteExpense(index) {
+                    if (confirm('確定要刪除此支出記錄？')) {
+                        this.expenses.splice(index, 1);
+                        this.saveData();
+                    }
+                },
+                // 購物清單管理
+                addShoppingItem() {
+                    if (this.newShoppingItem.trim()) {
+                        this.shoppingList.push({
+                            name: this.newShoppingItem,
+                            checked: false
+                        });
+                        this.newShoppingItem = '';
+                        this.saveData();
+                    }
+                },
+                deleteShoppingItem(index) {
+                    this.shoppingList.splice(index, 1);
+                    this.saveData();
+                },
+                // 數據持久化
+                saveData() {
+                    localStorage.setItem('travelAppData', JSON.stringify({
+                        schedules: this.schedules,
+                        expenses: this.expenses,
+                        shoppingList: this.shoppingList
+                    }));
+                },
+                loadData() {
+                    const saved = localStorage.getItem('travelAppData');
+                    if (saved) {
+                        const data = JSON.parse(saved);
+                        this.schedules = data.schedules || [];
+                        this.expenses = data.expenses || [];
+                        this.shoppingList = data.shoppingList || [];
+                    }
+                },
+                updateDate() {
+                    const now = new Date();
+                    this.currentDate = now.toLocaleDateString('zh-HK', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric',
+                        weekday: 'long'
+                    });
+                }
+            },
+            mounted() {
+                this.updateDate();
+                this.loadData();
+                // 監聽購物清單變化以保存數據
+                this.$watch('shoppingList', () => this.saveData(), { deep: true });
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
